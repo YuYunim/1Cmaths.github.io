@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>數學天地</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Nunito (圓潤數字/英文) 與 Noto Sans TC (高清晰度中文保底) -->
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@800;900&family=Noto+Sans+TC:wght@700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            /* 完美的字體堆疊：先用 Nunito 渲染數字，接著在蘋果設備上使用內建完美圓體，最後用 Noto Sans 保底 */
+            font-family: 'Nunito', 'Hiragino Maru Gothic ProN', 'Chalkboard SE', 'Noto Sans TC', sans-serif;
+            background-color: #87CEEB;
+            overflow: hidden; 
+            touch-action: none; 
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        /* Interactive element styling */
+        .map-node {
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), filter 0.2s;
+            cursor: pointer;
+        }
+        .map-node:hover {
+            transform: scale(1.05);
+            filter: brightness(1.1);
+        }
+        .map-node:active {
+            transform: scale(0.95);
+        }
+
+        /* Animations */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes bounce-in {
+            0% { transform: scale(0); opacity: 0; }
+            60% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .animate-bounce-in {
+            animation: bounce-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        /* 答錯時的抖動動畫 */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-10px); }
+            40% { transform: translateX(10px); }
+            60% { transform: translateX(-10px); }
+            80% { transform: translateX(10px); }
+        }
+        .shake-active {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        @keyframes slide-in-top {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .slide-in-top {
+            animation: slide-in-top 0.5s ease-out forwards;
+        }
+
+        /* Specific game visuals */
+        .river-bg { background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%); }
+        .forest-bg { background: linear-gradient(180deg, #86efac 0%, #22c55e 100%); }
+        .sunset-bg { background: linear-gradient(180deg, #fcd34d 0%, #f59e0b 100%); }
+        .night-bg { background: linear-gradient(180deg, #a78bfa 0%, #6d28d9 100%); }
+        .pink-bg { background: linear-gradient(180deg, #f9a8d4 0%, #db2777 100%); }
+        .teal-bg { background: linear-gradient(180deg, #5eead4 0%, #0f766e 100%); }
+
+        #game-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
+        }
+
+        .ui-layer {
+            position: relative;
+            z-index: 10;
+        }
+        
+        .timer-transition {
+            transition: width 1s linear, background-color 0.5s;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col m-0 p-0">
+
+    <!-- Screen 1: Main Map Selection -->
+    <div id="screen-map" class="w-full h-full flex flex-col relative forest-bg">
+        <!-- Language Toggle -->
+        <button onclick="toggleLanguage()" class="absolute top-2 right-2 md:top-4 md:right-4 z-20 bg-white/90 backdrop-blur text-green-800 font-black py-1 px-3 md:py-2 md:px-4 text-[10px] md:text-sm rounded-full shadow-md border-2 border-green-500 hover:bg-white active:scale-95 transition">
+            <span id="lang-btn-text">EN / 中</span>
+        </button>
+
+        <!-- Title -->
+        <div class="w-full pt-10 pb-2 md:py-6 flex justify-center items-center slide-in-top z-10">
+            <h1 id="app-title" class="text-3xl md:text-6xl font-black text-white drop-shadow-lg tracking-wider" style="-webkit-text-stroke: 1.5px #15803d;">
+                數學天地
+            </h1>
+        </div>
+
+        <!-- Map nodes container -->
+        <div class="flex-1 flex flex-col justify-center items-center relative w-full max-w-5xl mx-auto px-1">
+            
+            <!-- 7 個關卡節點 (微調大小以容納文字) -->
+            <div class="flex flex-wrap justify-center content-center w-full h-full items-center gap-3 md:gap-6 p-1 pb-10">
+                
+                <button onclick="openModeSelect('COUNT_IMG')" class="map-node z-10 bg-red-400 text-red-900 w-[115px] h-[115px] md:w-36 md:h-36 rounded-full flex flex-col items-center justify-center border-4 border-white shadow-xl animate-float px-1" style="animation-delay: 0.1s;">
+                    <span class="text-3xl md:text-4xl mb-0.5">🍄</span>
+                    <span id="btn-count-img" class="text-[13px] md:text-base font-black leading-tight text-center">蘑菇<br>數一數</span>
+                </button>
+
+                <button onclick="openModeSelect('COMPARE_IMG')" class="map-node z-10 bg-pink-400 text-pink-900 w-[115px] h-[115px] md:w-36 md:h-36 rounded-full flex flex-col items-center justify-center border-4 border-white shadow-xl animate-float px-1" style="animation-delay: 0.3s;">
+                    <span class="text-3xl md:text-4xl mb-0.5">🍎</span>
+                    <span id="btn-comp-img" class="text-[13px] md:text-base font-black leading-tight text-center">蘋果<br>比多少</span>
+                </button>
+
+                <button onclick="openModeSelect('MAKE_10')" class="map-node z-10 bg-yellow-400 text-yellow-900 w-[115px] h-[115px] md:w-36 md:h-36 rounded-full flex flex-col items-center justify-center border-4 border-white shadow-xl animate-float px-1" style="animation-delay: 0.5s;">
+                    <span class="text-3xl md:text-4xl mb-0.5">🐻</span>
+                    <span id="btn-make10" class="text-[13px] md:text-base font-black leading-tight text-center">熊熊<br>合十法</span>
+                </button>
+                
+                <button onclick="openModeSelect('MAKE_18')" class="map-node z-10 bg-blue-400 text-blue-900 w-[115px] h-[115px] md:w-36 md:h-36 rounded-full flex flex-col items-center justify-center border-4 border-white shadow-xl animate-float px-1" style="animation-delay: 0.7s;">
+                    <span class="text-3xl md:text-4xl mb-0.5">⚡</span>
+                    <span id="btn-make18" class="text-[13px] md:text-base font-black leading-tight text-center">極速<br>合十八</span>
+                </button>
+
+                <button onclick="openModeSelect('COUNT_2')" class="map-node z-10 bg-green-500 text-green-900 w-[115px] h-[115px] md:w-36 md:h-36 rounded-full flex flex-col items-center justify-center border-4 border-white shadow-xl animate-float px-1" style="animation-delay: 0.9s;">
+                    <span class="text-3xl md:text-4xl mb-0.5">🐸</span>
+                    <span id="btn-count2" class="text-[13px] md:text-base font-black leading-tight text-center">兩步<br>跳蛙蛙</span>
+                </button>
+                
+                <button onclick="openModeSelect('COUNT_5')" class="map-node z-10 bg-orange-400 text-orange-900 w-[115px] h-[115px] md:w-36 md:h-36 rounded-full flex flex-col items-center justify-center border-4 border-white shadow-xl animate-float px-1" style="animation-delay: 1.1s;">
+                    <span class="text-3xl md:text-4xl mb-0.5">🐒</span>
+                    <span id="btn-count5" class="text-[13px] md:text-base font-black leading-tight text-center">五步<br>攀岩猴</span>
+                </button>
+
+                <button onclick="openModeSelect('COMPARE')" class="map-node z-10 bg-purple-400 text-purple-900 w-[115px] h-[115px] md:w-36 md:h-36 rounded-full flex flex-col items-center justify-center border-4 border-white shadow-xl animate-float px-1" style="animation-delay: 1.3s;">
+                    <span class="text-3xl md:text-4xl mb-0.5">⚖️</span>
+                    <span id="btn-compare" class="text-[13px] md:text-base font-black leading-tight text-center">數字<br>大比拼</span>
+                </button>
+
+            </div>
+        </div>
+
+        <div id="instruction-text" class="pb-6 md:pb-8 text-center z-10 text-white font-bold text-base md:text-lg opacity-90 drop-shadow-md">
+            請選擇一個關卡開始冒險！
+        </div>
+    </div>
+
+    <!-- 模式選擇 Modal -->
+    <div id="mode-modal" class="hidden absolute inset-0 bg-black/60 z-50 flex items-center justify-center ui-layer backdrop-blur-sm">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-11/12 border-8 border-green-400 shadow-2xl transform transition-all text-center animate-bounce-in">
+            <h2 id="mode-title" class="text-2xl md:text-3xl font-black text-gray-800 mb-6 tracking-wide">請選擇遊玩模式</h2>
+            <div class="flex flex-col gap-4">
+                <button onclick="startGame(true)" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-4 rounded-2xl text-xl shadow-lg border-b-4 border-blue-700 active:translate-y-1 active:border-b-0 transition-all">
+                    ⏱️ <span id="mode-timed-text">限時挑戰 (60秒)</span>
+                </button>
+                <button onclick="startGame(false)" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-2xl text-xl shadow-lg border-b-4 border-green-700 active:translate-y-1 active:border-b-0 transition-all">
+                    🌱 <span id="mode-untimed-text">輕鬆練習 (不限時)</span>
+                </button>
+                <button onclick="closeModeSelect()" class="mt-2 text-gray-400 font-bold underline py-2">
+                    <span id="mode-cancel-text">取消</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 遊戲結束結算 Modal -->
+    <div id="game-over-modal" class="hidden absolute inset-0 bg-black/60 z-50 flex items-center justify-center ui-layer backdrop-blur-sm">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-11/12 border-8 border-yellow-400 shadow-2xl transform transition-all text-center animate-bounce-in">
+            <h2 id="times-up-title" class="text-4xl md:text-5xl font-black text-red-500 mb-2">時間到！</h2>
+            <div class="text-6xl mb-4">⏰</div>
+            <p id="final-score-text" class="text-2xl font-bold text-gray-700 mb-2">你的得分是：</p>
+            <p id="final-score-number" class="text-6xl font-black text-yellow-500 mb-6">0</p>
+            <button onclick="returnToMap()" class="w-full bg-yellow-400 hover:bg-yellow-500 text-yellow-900 font-black py-4 rounded-2xl text-2xl shadow-lg border-b-4 border-yellow-600 active:translate-y-1 active:border-b-0 transition-all">
+                <span id="btn-back-map">返回地圖</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Screen 2: Gameplay Area -->
+    <div id="screen-game" class="w-full h-full hidden flex-col relative river-bg">
+        <canvas id="game-canvas"></canvas>
+
+        <!-- Top UI Bar -->
+        <div class="ui-layer w-full p-4 flex justify-between items-start pointer-events-none">
+            <button id="btn-return" onclick="returnToMap()" class="pointer-events-auto bg-white/50 backdrop-blur-md border-2 border-white text-gray-800 font-bold py-2 px-4 rounded-full shadow-lg hover:bg-white/80 active:scale-95 transition">
+                ⬅ 返回
+            </button>
+            
+            <!-- 計時器 (限時模式顯示) -->
+            <div id="timer-container" class="hidden flex-1 mx-4 max-w-xs flex flex-col items-center pointer-events-auto bg-white/40 p-1.5 md:p-2 rounded-2xl backdrop-blur-sm border-2 border-white shadow-md">
+                <div class="w-full bg-gray-200 rounded-full h-4 overflow-hidden border border-gray-300 relative">
+                    <div id="timer-bar" class="bg-green-400 h-full rounded-full timer-transition" style="width: 100%"></div>
+                    <span class="absolute right-0 top-0 text-xs">🐢</span>
+                </div>
+            </div>
+
+            <div class="flex flex-col items-end">
+                <div class="bg-blue-500 text-white font-black text-xl py-1 px-4 rounded-full border-2 border-white shadow-md flex items-center">
+                    ⭐ <span id="score-display" class="ml-2">0</span>
+                </div>
+                <div id="combo-display" class="text-yellow-300 font-bold text-lg mt-1 hidden drop-shadow-md">
+                    Combo x2!
+                </div>
+            </div>
+        </div>
+
+        <!-- Question Display -->
+        <div class="ui-layer w-full flex justify-center mt-2 pointer-events-none px-4">
+            <div id="question-box" class="bg-white/95 backdrop-blur-sm border-4 border-blue-400 rounded-3xl p-4 md:p-6 shadow-2xl transform transition-transform duration-300 min-w-[200px] max-w-md">
+                <h2 id="question-text" class="text-5xl md:text-6xl font-black text-gray-800 text-center tracking-wide flex items-center justify-center flex-wrap">
+                    <!-- 題目將動態注入 -->
+                </h2>
+            </div>
+        </div>
+
+        <!-- Feedback Overlay -->
+        <div id="feedback-overlay" class="absolute inset-0 flex justify-center items-center z-50 pointer-events-none hidden">
+            <div id="feedback-text" class="text-6xl md:text-8xl font-black text-white drop-shadow-[0_5px_5px_rgba(0,0,0,0.5)]">
+                太棒了！
+            </div>
+        </div>
+
+        <!-- Bottom Spacer to push canvas interaction up -->
+        <div class="flex-1 pointer-events-none"></div>
+
+        <!-- Hint area -->
+        <div id="game-hint" class="ui-layer text-center text-[22px] md:text-4xl text-white font-black drop-shadow-md mb-4 pb-4 pointer-events-none px-2" style="-webkit-text-stroke: 1px #000;">
+            選出能湊成 10 的數字！
+        </div>
+    </div>
+
+    <script>
+        // --- i18n Dictionary ---
+        const i18n = {
+            zh: {
+                title: "數學天地",
+                instruction: "請選擇一個關卡開始冒險！",
+                btn_return: "⬅ 返回",
+                msg_correct: "太棒了！",
+                msg_wrong: "再試一次！",
+                lvl_count_img: "蘑菇<br>數一數",
+                lvl_comp_img: "蘋果<br>比多少",
+                lvl_make10: "熊熊<br>合十法",
+                lvl_make18: "極速<br>合十八",
+                lvl_count2: "兩步<br>跳蛙蛙",
+                lvl_count5: "五步<br>攀岩猴",
+                lvl_compare: "數字<br>大比拼",
+                hint_count_img: "數數看，這裡有幾個蘑菇？",
+                hint_comp_img: "哪邊比較多？填入正確符號！",
+                hint_make10: "選出能湊成 10 的數字！",
+                hint_make18: "計算兩個數字加起來是多少！",
+                hint_count2_up: "兩個一數，下一個是？(順數)",
+                hint_count2_down: "兩個一數，下一個是？(倒數)",
+                hint_count5_up: "五個一數，下一個是？(順數)",
+                hint_count5_down: "五個一數，下一個是？(倒數)",
+                hint_compare: "比比看，填入正確的符號！",
+                mode_title: "請選擇遊玩模式",
+                mode_timed: "限時挑戰 (60秒)",
+                mode_untimed: "輕鬆練習 (不限時)",
+                mode_cancel: "取消",
+                times_up: "時間到！",
+                final_score: "你的得分是：",
+                btn_back_map: "返回地圖"
+            },
+            en: {
+                title: "Maths' World",
+                instruction: "Select a level to start!",
+                btn_return: "⬅ Back",
+                msg_correct: "Great!",
+                msg_wrong: "Try Again!",
+                lvl_count_img: "Count<br>Mushroom",
+                lvl_comp_img: "Compare<br>Apples",
+                lvl_make10: "Bear<br>Make 10",
+                lvl_make18: "Speed<br>Make 18",
+                lvl_count2: "Frog<br>Count by 2",
+                lvl_count5: "Monkey<br>Count by 5",
+                lvl_compare: "Number<br>Compare",
+                hint_count_img: "How many mushrooms are there?",
+                hint_comp_img: "Which is more? Pick a symbol!",
+                hint_make10: "Choose a number to make 10!",
+                hint_make18: "Add the two numbers!",
+                hint_count2_up: "Count by 2 (Forward), next is?",
+                hint_count2_down: "Count by 2 (Backward), next is?",
+                hint_count5_up: "Count by 5 (Forward), next is?",
+                hint_count5_down: "Count by 5 (Backward), next is?",
+                hint_compare: "Compare and pick the right symbol!",
+                mode_title: "Select Game Mode",
+                mode_timed: "Timed (60s)",
+                mode_untimed: "Practice (Untimed)",
+                mode_cancel: "Cancel",
+                times_up: "Time's Up!",
+                final_score: "Your Score: ",
+                btn_back_map: "Back to Map"
+            }
+        };
+        let currentLang = 'zh';
+
+        // --- App State ---
+        let currentMode = null; 
+        let pendingMode = null; 
+        let score = 0;
+        let combo = 0;
+        let isAnimating = false;
+        
+        // Timer State
+        let isTimed = false;
+        let timeLeft = 60;
+        let timerInterval = null;
+        const GAME_DURATION = 60;
+
+        let currentHintKey = '';
+
+        // --- DOM Elements ---
+        const screenMap = document.getElementById('screen-map');
+        const screenGame = document.getElementById('screen-game');
+        const questionText = document.getElementById('question-text');
+        const scoreDisplay = document.getElementById('score-display');
+        const comboDisplay = document.getElementById('combo-display');
+        const questionBox = document.getElementById('question-box');
+        const feedbackOverlay = document.getElementById('feedback-overlay');
+        const feedbackText = document.getElementById('feedback-text');
+        const gameHint = document.getElementById('game-hint');
+        
+        const modeModal = document.getElementById('mode-modal');
+        const gameOverModal = document.getElementById('game-over-modal');
+        const timerContainer = document.getElementById('timer-container');
+        const timerBar = document.getElementById('timer-bar');
+        const finalScoreNumber = document.getElementById('final-score-number');
+
+        // --- Canvas Setup ---
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        let dpr = window.devicePixelRatio || 1;
+        let rect = canvas.getBoundingClientRect();
+        
+        let interactables = [];
+        let particles = [];
+        let animationFrameId;
+
+        // --- Language Toggle Logic ---
+        function toggleLanguage() {
+            currentLang = currentLang === 'zh' ? 'en' : 'zh';
+            applyLanguage();
+        }
+
+        function applyLanguage() {
+            const d = i18n[currentLang];
+            document.getElementById('lang-btn-text').innerText = currentLang === 'zh' ? 'EN / 中' : '中 / EN';
+            document.title = d.title; // 這裡也會更新瀏覽器分頁的標題
+            document.getElementById('app-title').innerText = d.title;
+            document.getElementById('instruction-text').innerText = d.instruction;
+            document.getElementById('btn-return').innerText = d.btn_return;
+            
+            document.getElementById('btn-count-img').innerHTML = d.lvl_count_img;
+            document.getElementById('btn-comp-img').innerHTML = d.lvl_comp_img;
+            document.getElementById('btn-make10').innerHTML = d.lvl_make10;
+            document.getElementById('btn-make18').innerHTML = d.lvl_make18;
+            document.getElementById('btn-count2').innerHTML = d.lvl_count2;
+            document.getElementById('btn-count5').innerHTML = d.lvl_count5;
+            document.getElementById('btn-compare').innerHTML = d.lvl_compare;
+            
+            document.getElementById('mode-title').innerText = d.mode_title;
+            document.getElementById('mode-timed-text').innerText = d.mode_timed;
+            document.getElementById('mode-untimed-text').innerText = d.mode_untimed;
+            document.getElementById('mode-cancel-text').innerText = d.mode_cancel;
+            document.getElementById('times-up-title').innerText = d.times_up;
+            document.getElementById('final-score-text').innerText = d.final_score;
+            document.getElementById('btn-back-map').innerText = d.btn_back_map;
+
+            if (currentHintKey && d[currentHintKey]) {
+                gameHint.innerText = d[currentHintKey];
+            }
+        }
+
+        let audioCtx;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playTone(freq, type = 'sine', duration = 0.1) {
+            if (!audioCtx) return;
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            
+            gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            oscillator.start();
+            oscillator.stop(audioCtx.currentTime + duration);
+        }
+
+        function playCorrectSound() {
+            initAudio();
+            playTone(440, 'sine', 0.15); // A4
+            setTimeout(() => playTone(659.25, 'sine', 0.2), 100); // E5
+        }
+
+        function playWrongSound() {
+            initAudio();
+            playTone(200, 'sawtooth', 0.2);
+            setTimeout(() => playTone(150, 'sawtooth', 0.3), 150);
+        }
+
+        // --- Canvas Rendering Loop ---
+        function resizeCanvas() {
+            rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            if (currentMode) generateInteractables(); 
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function startRenderLoop() {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            
+            let lastTime = 0;
+            function render(time) {
+                const dt = time - lastTime;
+                lastTime = time;
+
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                interactables.forEach(item => {
+                    item.update(dt);
+                    item.draw(ctx);
+                });
+
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    particles[i].update(dt);
+                    particles[i].draw(ctx);
+                    if (particles[i].life <= 0) {
+                        particles.splice(i, 1);
+                    }
+                }
+
+                animationFrameId = requestAnimationFrame(render);
+            }
+            animationFrameId = requestAnimationFrame(render);
+        }
+
+        class Interactable {
+            constructor(x, y, value, isTarget, type) {
+                this.x = x;
+                this.y = y;
+                this.baseY = y;
+                this.value = value;
+                this.isTarget = isTarget;
+                this.type = type; 
+                
+                this.radius = Math.min(rect.width * 0.15, 60);
+                if(this.radius < 40) this.radius = 40;
+
+                this.scale = 0;
+                this.targetScale = 1;
+                this.time = Math.random() * 100;
+                this.isJumping = false;
+                this.jumpOffset = 0;
+            }
+
+            update(dt) {
+                this.time += dt * 0.003;
+                if (!this.isJumping) {
+                    this.y = this.baseY + Math.sin(this.time) * 10;
+                }
+                
+                if (this.scale < this.targetScale) {
+                    this.scale += 0.05;
+                    if (this.scale > this.targetScale) this.scale = this.targetScale;
+                } else if (this.scale > this.targetScale) {
+                    this.scale -= 0.1;
+                    if (this.scale < this.targetScale) this.scale = this.targetScale;
+                }
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.translate(this.x, this.y + this.jumpOffset);
+                ctx.scale(this.scale, this.scale);
+
+                if (this.type === 'honeyJar') {
+                    // 立體蜜糖罐
+                    ctx.beginPath();
+                    ctx.arc(0, this.radius * 0.3, this.radius * 0.8, 0, Math.PI * 2);
+                    ctx.fillStyle = '#fbbf24'; 
+                    ctx.fill();
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = '#b45309';
+                    ctx.stroke();
+
+                    // 瓶口
+                    ctx.beginPath();
+                    ctx.ellipse(0, -this.radius * 0.6, this.radius * 0.5, this.radius * 0.15, 0, 0, Math.PI * 2);
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // 蜂蜜滴落裝飾
+                    ctx.beginPath();
+                    ctx.moveTo(-this.radius * 0.4, -this.radius * 0.6);
+                    ctx.quadraticCurveTo(-this.radius * 0.2, -this.radius * 0.1, 0, -this.radius * 0.6);
+                    ctx.quadraticCurveTo(this.radius * 0.2, -this.radius * 0.3, this.radius * 0.4, -this.radius * 0.6);
+                    ctx.fillStyle = '#f59e0b';
+                    ctx.fill();
+
+                } else if (this.type === 'lilypad') {
+                    // 綠色荷葉
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, this.radius, this.radius * 0.6, 0, 0, Math.PI * 2);
+                    ctx.fillStyle = '#4ade80';
+                    ctx.fill();
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = '#166534';
+                    ctx.stroke();
+                    
+                    // 修正：葉脈裝飾線，先畫且不穿過中心，避免與數字重疊
+                    ctx.beginPath();
+                    ctx.moveTo(-this.radius*0.5, 0); 
+                    ctx.lineTo(-this.radius*0.9, 0);
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = '#166534';
+                    ctx.stroke();
+
+                } else if (this.type === 'bubble') {
+                    // 藍色泡泡
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                    const gradient = ctx.createRadialGradient(-this.radius*0.3, -this.radius*0.3, this.radius*0.1, 0, 0, this.radius);
+                    gradient.addColorStop(0, '#93c5fd');
+                    gradient.addColorStop(1, '#3b82f6');
+                    ctx.fillStyle = gradient;
+                    ctx.fill();
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = '#bfdbfe';
+                    ctx.stroke();
+                } else {
+                    // 橘色石頭 (藤蔓)
+                    ctx.beginPath();
+                    ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = '#fdba74';
+                    ctx.fill();
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = '#c2410c';
+                    ctx.stroke();
+                }
+
+                // 文字渲染 (使用 Nunito 確保數字完美圓潤可愛)
+                ctx.fillStyle = (this.type === 'bubble') ? '#ffffff' : (this.type === 'honeyJar' ? '#451a03' : '#1f2937');
+                ctx.font = `900 ${this.radius * 0.8}px 'Nunito', 'Hiragino Maru Gothic ProN', sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                if(this.type === 'bubble') {
+                    ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                    ctx.shadowBlur = 4;
+                    ctx.shadowOffsetY = 2;
+                } else {
+                    ctx.shadowColor = 'transparent';
+                }
+                
+                // 調整蜜糖罐中數字的位置，讓它坐在肚子裡
+                let textOffsetY = (this.type === 'honeyJar') ? this.radius * 0.35 : 5;
+                ctx.fillText(this.value, 0, textOffsetY);
+
+                ctx.restore();
+            }
+
+            contains(px, py) {
+                const dx = this.x - px;
+                const dy = (this.y + this.jumpOffset) - py;
+                return Math.sqrt(dx*dx + dy*dy) <= this.radius;
+            }
+
+            jump() {
+                this.isJumping = true;
+                let frame = 0;
+                const jumpAnim = setInterval(() => {
+                    frame++;
+                    this.jumpOffset = -Math.sin(frame * 0.2) * 30;
+                    if (frame > Math.PI / 0.2) {
+                        clearInterval(jumpAnim);
+                        this.jumpOffset = 0;
+                        this.isJumping = false;
+                    }
+                }, 16);
+            }
+        }
+
+        class Particle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 10;
+                this.vy = (Math.random() - 0.5) * 10 - 5;
+                this.life = 1;
+                this.color = color;
+                this.size = Math.random() * 8 + 4;
+            }
+            update(dt) {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.2; 
+                this.life -= 0.02;
+            }
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        let currentTargetValue = 0;
+
+        function setGameHint(key) {
+            currentHintKey = key;
+            gameHint.innerText = i18n[currentLang][key];
+        }
+
+        function generateQuestion() {
+            if (currentMode === 'COUNT_IMG') {
+                let count = Math.floor(Math.random() * 12) + 3; // 3 to 14
+                currentTargetValue = count;
+                let emojis = Array(count).fill('🍄').join('');
+                
+                questionText.innerHTML = `<div class="flex flex-wrap justify-center items-center gap-1 leading-none text-4xl p-2">${emojis}</div>`;
+                setGameHint('hint_count_img');
+
+                let options = [currentTargetValue];
+                while(options.length < 3) {
+                    let offset = Math.floor(Math.random() * 5) - 2;
+                    if (offset === 0) offset = 3;
+                    let rand = currentTargetValue + offset;
+                    if (rand > 0 && !options.includes(rand)) options.push(rand);
+                }
+                return options.sort(() => Math.random() - 0.5);
+
+            } else if (currentMode === 'COMPARE_IMG') {
+                let leftCount = Math.floor(Math.random() * 8) + 1;
+                let rightCount = Math.floor(Math.random() * 8) + 1;
+                if (Math.random() > 0.7) rightCount = leftCount; // 30% chance equal
+
+                let leftEmojis = Array(leftCount).fill('🍎').join('');
+                let rightEmojis = Array(rightCount).fill('🍎').join('');
+
+                if (leftCount > rightCount) currentTargetValue = '>';
+                else if (leftCount < rightCount) currentTargetValue = '<';
+                else currentTargetValue = '=';
+
+                questionText.innerHTML = `
+                    <div class="flex items-center justify-between w-full min-w-[250px] gap-4">
+                        <div class="flex-1 flex flex-wrap justify-center text-3xl leading-none">${leftEmojis}</div>
+                        <span class="text-pink-500 px-2 text-5xl font-black bg-pink-100 rounded-full border-4 border-dashed border-pink-400">?</span>
+                        <div class="flex-1 flex flex-wrap justify-center text-3xl leading-none">${rightEmojis}</div>
+                    </div>
+                `;
+                setGameHint('hint_comp_img');
+                
+                return ['>', '<', '='];
+
+            } else if (currentMode === 'MAKE_10') {
+                let num1 = Math.floor(Math.random() * 9) + 1; 
+                currentTargetValue = 10 - num1;
+                questionText.innerHTML = `${num1} + <span class="text-red-500">?</span> = 10`;
+                setGameHint('hint_make10');
+
+                let options = [currentTargetValue];
+                while(options.length < 3) {
+                    let rand = Math.floor(Math.random() * 9) + 1;
+                    if(!options.includes(rand)) options.push(rand);
+                }
+                return options.sort(() => Math.random() - 0.5);
+
+            } else if (currentMode === 'MAKE_18') {
+                // 合十八：確保兩數相加不大於 18，且皆為單位數
+                let num1 = Math.floor(Math.random() * 9) + 1;
+                let maxNum2 = 18 - num1;
+                if (maxNum2 > 9) maxNum2 = 9;
+                let num2 = Math.floor(Math.random() * maxNum2) + 1;
+                currentTargetValue = num1 + num2;
+                
+                // 動態調整字體大小以適應框內
+                questionText.innerHTML = `<span class="text-5xl md:text-6xl" style="font-family: 'Nunito', sans-serif;">${num1} + ${num2} = <span class="text-red-500">?</span></span>`;
+                setGameHint('hint_make18');
+
+                let options = [currentTargetValue];
+                while(options.length < 3) {
+                    let offset = Math.floor(Math.random() * 5) - 2; 
+                    if (offset === 0) offset = 3;
+                    let rand = currentTargetValue + offset;
+                    if (rand > 0 && !options.includes(rand)) options.push(rand);
+                }
+                return options.sort(() => Math.random() - 0.5);
+
+            } else if (currentMode === 'COUNT_2') {
+                let isCountUp = Math.random() > 0.5;
+                let seq, target, d1, d2;
+
+                if (isCountUp) {
+                    // 順數
+                    let start = Math.floor(Math.random() * 7) * 2 + 2; // 2, 4, 6... 14
+                    seq = [start, start + 2, '?'];
+                    target = start + 4;
+                    d1 = target + 2;
+                    d2 = target - 2;
+                    if(d2 <= 0) d2 = target + 4;
+                    setGameHint('hint_count2_up');
+                } else {
+                    // 倒數
+                    let start = Math.floor(Math.random() * 7) * 2 + 8; // 8, 10... 20
+                    seq = [start, start - 2, '?'];
+                    target = start - 4;
+                    d1 = target - 2;
+                    if (d1 < 0) d1 = target + 4;
+                    d2 = target + 2;
+                    setGameHint('hint_count2_down');
+                }
+
+                currentTargetValue = target;
+                questionText.innerHTML = `${seq[0]}, ${seq[1]}, <span class="text-red-500">?</span>`;
+                
+                return [target, d1, d2].sort(() => Math.random() - 0.5);
+
+            } else if (currentMode === 'COUNT_5') {
+                let isCountUp = Math.random() > 0.5;
+                let seq, target, d1, d2;
+
+                if (isCountUp) {
+                    // 順數
+                    let start = Math.floor(Math.random() * 8) * 5 + 5; // 5, 10, 15... 40
+                    seq = [start, start + 5, '?'];
+                    target = start + 10;
+                    d1 = target + 5;
+                    d2 = target - 5;
+                    if(d2 <= 0) d2 = target + 15;
+                    setGameHint('hint_count5_up');
+                } else {
+                    // 倒數
+                    let start = Math.floor(Math.random() * 7) * 5 + 20; // 20, 25... 50
+                    seq = [start, start - 5, '?'];
+                    target = start - 10;
+                    d1 = target - 5;
+                    if (d1 < 0) d1 = target + 15;
+                    d2 = target + 5;
+                    setGameHint('hint_count5_down');
+                }
+
+                currentTargetValue = target;
+                questionText.innerHTML = `${seq[0]}, ${seq[1]}, <span class="text-red-500">?</span>`;
+                
+                return [target, d1, d2].sort(() => Math.random() - 0.5);
+
+            } else if (currentMode === 'COMPARE') {
+                let num1 = Math.floor(Math.random() * 20);
+                let num2 = Math.floor(Math.random() * 20);
+                
+                if (Math.random() > 0.8) num2 = num1; // 20% 機率相等
+
+                if (num1 > num2) currentTargetValue = '>';
+                else if (num1 < num2) currentTargetValue = '<';
+                else currentTargetValue = '=';
+
+                questionText.innerHTML = `<span style="font-family: 'Nunito', sans-serif;">${num1} <span class="text-purple-500 px-2 border-b-4 border-dashed border-purple-500">?</span> ${num2}</span>`;
+                setGameHint('hint_compare');
+                
+                return ['>', '<', '=']; 
+            }
+        }
+
+        function generateInteractables() {
+            if(!rect || rect.width === 0) return; 
+            
+            const options = generateQuestion();
+            interactables = [];
+            
+            let type = 'honeyJar'; 
+            if(currentMode === 'COUNT_2') type = 'lilypad';
+            if(currentMode === 'MAKE_18' || currentMode === 'COMPARE' || currentMode === 'COUNT_IMG') type = 'bubble';
+            if(currentMode === 'COUNT_5') type = 'vine'; // 橘色石頭
+            if(currentMode === 'COMPARE_IMG') type = 'bubble';
+
+            const w = rect.width;
+            const h = rect.height;
+            const yBase = h * 0.65;
+            
+            const positions = [
+                {x: w * 0.25, y: yBase - h*0.05},
+                {x: w * 0.5, y: yBase + h*0.05},
+                {x: w * 0.75, y: yBase - h*0.05}
+            ];
+
+            options.forEach((opt, index) => {
+                const pos = positions[index];
+                const isTarget = (opt === currentTargetValue);
+                interactables.push(new Interactable(pos.x, pos.y, opt, isTarget, type));
+            });
+
+            questionBox.classList.remove('animate-bounce-in');
+            void questionBox.offsetWidth; 
+            questionBox.classList.add('animate-bounce-in');
+        }
+
+        function handleInteraction(clientX, clientY) {
+            if (isAnimating) return;
+            initAudio();
+
+            const rect = canvas.getBoundingClientRect();
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
+
+            let hit = false;
+
+            for (let item of interactables) {
+                if (item.contains(x, y)) {
+                    hit = true;
+                    item.jump();
+                    
+                    if (item.isTarget) {
+                        handleCorrect(item);
+                    } else {
+                        handleWrong(item);
+                    }
+                    break;
+                }
+            }
+
+            if (!hit) {
+                playTone(400, 'sine', 0.05);
+            }
+        }
+
+        function spawnParticles(x, y, color, count) {
+            for(let i=0; i<count; i++) {
+                particles.push(new Particle(x, y, color));
+            }
+        }
+
+        function showFeedback(textKey, isCorrect) {
+            feedbackText.innerText = i18n[currentLang][textKey];
+            feedbackText.className = `text-5xl md:text-7xl font-black drop-shadow-[0_5px_5px_rgba(0,0,0,0.5)] animate-bounce-in ${isCorrect ? 'text-green-400' : 'text-red-400'}`;
+            feedbackOverlay.classList.remove('hidden');
+            
+            setTimeout(() => {
+                feedbackOverlay.classList.add('hidden');
+            }, 1000);
+        }
+
+        function handleCorrect(item) {
+            isAnimating = true;
+            playCorrectSound();
+            spawnParticles(item.x, item.y, '#fbbf24', 30); 
+            
+            combo++;
+            let points = 1 + (combo > 1 ? 1 : 0);
+            score += points;
+            scoreDisplay.innerText = score;
+
+            if (combo > 1) {
+                comboDisplay.innerText = `Combo x${combo}!`;
+                comboDisplay.classList.remove('hidden');
+                comboDisplay.classList.add('animate-bounce-in');
+            }
+
+            showFeedback('msg_correct', true);
+            interactables.forEach(i => i.targetScale = 0);
+
+            setTimeout(() => {
+                isAnimating = false;
+                generateInteractables();
+            }, 1000);
+        }
+
+        function triggerWrongFeedback() {
+            document.body.classList.add('shake-active');
+            setTimeout(() => {
+                document.body.classList.remove('shake-active');
+            }, 400); 
+        }
+
+        function handleWrong(item) {
+            playWrongSound();
+            triggerWrongFeedback(); 
+            
+            combo = 0;
+            comboDisplay.classList.add('hidden');
+            
+            item.targetScale = 0.8;
+            setTimeout(() => item.targetScale = 1, 200);
+
+            showFeedback('msg_wrong', false);
+        }
+
+        // --- Mouse and Touch events ---
+        canvas.addEventListener('mousedown', (e) => handleInteraction(e.clientX, e.clientY));
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault(); 
+            if(e.touches.length > 0) {
+                handleInteraction(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, {passive: false});
+
+        window.openModeSelect = function(mode) {
+            initAudio();
+            pendingMode = mode;
+            modeModal.classList.remove('hidden');
+        }
+
+        window.closeModeSelect = function() {
+            modeModal.classList.add('hidden');
+            pendingMode = null;
+        }
+
+        window.startGame = function(timed) {
+            modeModal.classList.add('hidden');
+            if(!pendingMode) return;
+            
+            currentMode = pendingMode;
+            isTimed = timed;
+            score = 0;
+            combo = 0;
+            scoreDisplay.innerText = '0';
+            comboDisplay.classList.add('hidden');
+
+            // Timer setup
+            if (timerInterval) clearInterval(timerInterval);
+            if (isTimed) {
+                timeLeft = GAME_DURATION;
+                timerContainer.classList.remove('hidden');
+                updateTimerUI();
+                timerInterval = setInterval(() => {
+                    timeLeft--;
+                    updateTimerUI();
+                    if(timeLeft <= 0) {
+                        endGame();
+                    }
+                }, 1000);
+            } else {
+                timerContainer.classList.add('hidden');
+            }
+
+            // Set Background based on level
+            let bgClass = 'river-bg'; 
+            if (currentMode === 'MAKE_18') bgClass = 'sunset-bg';
+            else if (currentMode === 'COUNT_2') bgClass = 'forest-bg';
+            else if (currentMode === 'COUNT_5') bgClass = 'bg-gradient-to-b from-orange-300 to-amber-600';
+            else if (currentMode === 'COMPARE') bgClass = 'night-bg';
+            else if (currentMode === 'COUNT_IMG') bgClass = 'teal-bg';
+            else if (currentMode === 'COMPARE_IMG') bgClass = 'pink-bg';
+
+            screenGame.className = `w-full h-full flex flex-col relative ${bgClass}`;
+
+            screenMap.classList.add('hidden');
+            screenGame.classList.remove('hidden');
+            
+            setTimeout(() => {
+                resizeCanvas();
+                startRenderLoop();
+            }, 50);
+        }
+
+        function updateTimerUI() {
+            let percentage = (timeLeft / GAME_DURATION) * 100;
+            timerBar.style.width = `${percentage}%`;
+            
+            if (percentage > 50) timerBar.className = 'bg-green-400 h-full rounded-full timer-transition';
+            else if (percentage > 20) timerBar.className = 'bg-yellow-400 h-full rounded-full timer-transition';
+            else timerBar.className = 'bg-red-500 h-full rounded-full timer-transition animate-pulse';
+        }
+
+        function endGame() {
+            if (timerInterval) clearInterval(timerInterval);
+            isAnimating = true; // Stop interaction
+            
+            finalScoreNumber.innerText = score;
+            gameOverModal.classList.remove('hidden');
+        }
+
+        window.returnToMap = function() {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            if (timerInterval) clearInterval(timerInterval);
+            
+            screenGame.classList.add('hidden');
+            gameOverModal.classList.add('hidden');
+            screenMap.classList.remove('hidden');
+            
+            currentMode = null;
+            isAnimating = false;
+        }
+
+        // Init language on load
+        applyLanguage();
+        
+    </script>
+</body>
+</html>
